@@ -21,23 +21,19 @@ for change in sys.argv[1:]:
     f = urllib.request.urlopen('http://code.rodnet.es/query?q=change:%s' % change)
     d = f.read().decode("utf-8")
     # gerrit doesnt actually return json. returns two json blobs, separate lines. bizarre.
-	
-    # Don't print data, as it would give an error if it finds any extrange character
-	# print(d)
+
     d = d.split('\n')[0]
     data = json.loads(d)
     project = data['project']
 
     plist = subprocess.Popen([os.environ['HOME']+"/bin/repo","list"], stdout=subprocess.PIPE)
-    while(True):
-        retcode = plist.poll()
-        pline = plist.stdout.readline().rstrip()
-        ppaths = re.split('\s*:\s*', pline.decode())
-        if ppaths[1] == project:
-            project = ppaths[0]
-            break
-        if(retcode is not None):
-            break
+    out, err = plist.communicate()
+    if (err is None):
+        data = [re.split('\s*:\s*', line.strip()) for line in out.split('\n') if line.strip()]
+        for item in data:
+            if item[1] == project:
+                project = item[0]
+                break
 
     print(project)
     number = data['number']
