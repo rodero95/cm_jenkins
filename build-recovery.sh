@@ -25,7 +25,7 @@ then
   exit 1
 fi
 
-REPO_BRANCH=cm-10.1
+REPO_BRANCH=cm-10.2
 
 if [ -z "$RECOVERY_IMAGE_URL" -a -z "$EXISTING_DEVICE" ]
 then
@@ -74,8 +74,8 @@ then
   chmod a+x ~/bin/repo
 fi
 
-git config --global user.name $(whoami)@$NODE_NAME
-git config --global user.email jenkins@cyanogenmod.com
+git config --global user.name "The Rodnet Autobuilder"
+git config --global user.email jenkins@code.rodnet.es
 
 mkdir -p $REPO_BRANCH
 cd $REPO_BRANCH
