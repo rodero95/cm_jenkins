@@ -164,11 +164,11 @@ repo sync -d -c > /dev/null
 check_result "repo sync failed."
 echo Sync complete.
 
-if [ -f $WORKSPACE/hudson/$REPO_BRANCH-setup.sh ]
+if [ -f $WORKSPACE/cm_jenkins/$REPO_BRANCH-setup.sh ]
 then
-  $WORKSPACE/hudson/$REPO_BRANCH-setup.sh
+  $WORKSPACE/cm_jenkins/$REPO_BRANCH-setup.sh
 else
-  $WORKSPACE/hudson/cm-setup.sh
+  $WORKSPACE/cm_jenkins/cm-setup.sh
 fi
 
 if [ -f .last_branch ]
@@ -189,7 +189,7 @@ fi
 # Workaround for failing translation checks in common hardware repositories
 if [ ! -z "$GERRIT_XLATION_LINT" ]
 then
-    LUNCH=$(echo $LUNCH@$DEVICEVENDOR | sed -f $WORKSPACE/hudson/shared-repo.map)
+    LUNCH=$(echo $LUNCH@$DEVICEVENDOR | sed -f $WORKSPACE/cm_jenkins/shared-repo.map)
 fi
 
 lunch $LUNCH
@@ -248,15 +248,15 @@ then
   IS_HTTP=$(echo $GERRIT_CHANGES | grep http)
   if [ -z "$IS_HTTP" ]
   then
-    python $WORKSPACE/hudson/repopick.py $GERRIT_CHANGES
+    python $WORKSPACE/cm_jenkins/repopick.py $GERRIT_CHANGES
     check_result "gerrit picks failed."
   else
-    python $WORKSPACE/hudson/repopick.py $(curl $GERRIT_CHANGES)
+    python $WORKSPACE/cm_jenkins/repopick.py $(curl $GERRIT_CHANGES)
     check_result "gerrit picks failed."
   fi
   if [ ! -z "$GERRIT_XLATION_LINT" ]
   then
-    python $WORKSPACE/hudson/xlationlint.py $GERRIT_CHANGES
+    python $WORKSPACE/cm_jenkins/xlationlint.py $GERRIT_CHANGES
     check_result "basic XML lint failed."
   fi
 fi
@@ -267,7 +267,7 @@ then
 fi
 
 rm -f $WORKSPACE/changecount
-WORKSPACE=$WORKSPACE LUNCH=$LUNCH bash $WORKSPACE/hudson/changes/buildlog.sh 2>&1
+WORKSPACE=$WORKSPACE LUNCH=$LUNCH bash $WORKSPACE/cm_jenkins/changes/buildlog.sh 2>&1
 if [ -f $WORKSPACE/changecount ]
 then
   CHANGE_COUNT=$(cat $WORKSPACE/changecount)
