@@ -14,7 +14,7 @@ then
   git clone git://github.com/rodero95/cm_jenkins.git
 fi
 
-cd hudson
+cd cm_jenkins
 ## Get rid of possible local changes
 git reset --hard
 git pull -s resolve
