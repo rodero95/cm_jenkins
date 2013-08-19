@@ -338,8 +338,12 @@ chmod -R ugo+r $WORKSPACE/archive
 # echo "Adding build to GetCM"
 # python /opt/jenkins-utils/add_build.py --file `ls $WORKSPACE/archive/*.zip` --buildprop $WORKSPACE/archive/build.prop --buildnumber $BUILD_NO --releasetype $RELEASE_TYPE
 
-echo "Copying build to web server"
-sudo cp $WORKSPACE/archive/*.zip /home/nginx/www/
+echo "Allow Jenkins to save the builds"
+# Remove old artifacts
+rm -rf $WORKSPACE/../workspace/out
+# Then, save the builds
+mkdir -p $WORKSPACE/../workspace/out
+sudo cp $WORKSPACE/archive/* $WORKSPACE/../workspace/out/
 
 CMCP=$(which cmcp)
 if [ ! -z "$CMCP" -a ! -z "$CM_RELEASE" ]
