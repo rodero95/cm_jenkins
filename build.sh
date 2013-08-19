@@ -343,7 +343,7 @@ echo "Allow Jenkins to save the builds"
 rm -rf $WORKSPACE/../workspace/out
 # Then, save the builds
 mkdir -p $WORKSPACE/../workspace/out
-sudo cp $WORKSPACE/archive/* $WORKSPACE/../workspace/out/
+cp $WORKSPACE/archive/* $WORKSPACE/../workspace/out/
 
 CMCP=$(which cmcp)
 if [ ! -z "$CMCP" -a ! -z "$CM_RELEASE" ]
