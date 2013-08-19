@@ -14,4 +14,6 @@ cd $CMTREE
 
 curl -O https://gist.github.com/rodero95/5621859/raw/kernel.sh
 
+chmod +x kernel.sh
+
 exec ./kernel.sh
