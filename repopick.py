@@ -19,9 +19,11 @@ except ImportError:
 for change in sys.argv[1:]:
     print(change)
     f = urllib.request.urlopen('http://code.rodnet.es/query?q=change:%s' % change)
-    d = f.read().decode()
+    d = f.read().decode("utf-8")
     # gerrit doesnt actually return json. returns two json blobs, separate lines. bizarre.
-    print(d)
+	
+    # Don't print data, as it would give an error if it finds any extrange character
+	# print(d)
     d = d.split('\n')[0]
     data = json.loads(d)
     project = data['project']
