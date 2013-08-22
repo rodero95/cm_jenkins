@@ -4,12 +4,30 @@ then
   export HOME=$(awk -F: -v v="$USER" '{if ($1==v) print $6}' /etc/passwd)
 fi
 
-cd $WORKSPACE
-mkdir -p ../android
-cd ../android
-export WORKSPACE=$PWD
+if [$UBUNTU]; then
+	cd $WORKSPACE
+	mkdir -p ../ubuntu
+	cd ../ubuntu
+	export WORKSPACE=$PWD
 
-if [ ! -d hudson ]
+	if [ ! -d phablet_tools ]
+	then
+		git clone git://github.com/rodero95/phablet_tools.git
+	fi
+	
+	cd phablet_tools
+	## Get rid of possible local changes
+	git reset --hard
+	git pull -s resolve
+	cd ..
+else
+	cd $WORKSPACE
+	mkdir -p ../android
+	cd ../android
+	export WORKSPACE=$PWD
+fi
+	
+if [ ! -d cm_jenkins ]
 then
   git clone git://github.com/rodero95/cm_jenkins.git
 fi
@@ -19,4 +37,8 @@ cd cm_jenkins
 git reset --hard
 git pull -s resolve
 
-exec ./build.sh
+if [$UBUNTU]; then
+	exec ./ubuntu.sh
+else
+	exec ./build.sh
+fi
