@@ -4,10 +4,18 @@ function check_result {
   if [ "0" -ne "$?" ]
   then
     (repo forall -c "git reset --hard") >/dev/null
-    rm -f .repo/local_manifests/dyn-*.xml
-    rm -f .repo/local_manifests/roomservice.xml
+    cleanup
     echo $1
     exit 1
+  fi
+}
+
+function cleanup {
+  rm -f .repo/local_manifests/dyn-*.xml
+  rm -f .repo/local_manifests/roomservice.xml
+  if [ -f $WORKSPACE/build_env/cleanup.sh ]
+  then
+    bash $WORKSPACE/build_env/cleanup.sh
   fi
 }
 
@@ -51,6 +59,8 @@ if [ -z "$SYNC_PROTO" ]
 then
   SYNC_PROTO=http
 fi
+
+export PYTHONDONTWRITEBYTECODE=1
 
 # colorization fix in Jenkins
 export CL_RED="\"\033[31m\""
@@ -134,7 +144,7 @@ mkdir -p .repo/local_manifests
 rm -f .repo/local_manifest.xml
 
 rm -rf $WORKSPACE/build_env
-git clone https://github.com/rodero95/cm_build_config.git $WORKSPACE/build_env
+git clone https://github.com/rodero95/cm_build_config.git $WORKSPACE/build_env -b master
 check_result "Bootstrap failed"
 
 if [ -f $WORKSPACE/build_env/bootstrap.sh ]
@@ -218,6 +228,8 @@ then
   export RELEASE_TYPE=CM_EXPERIMENTAL
 fi
 
+export SIGN_BUILD=false
+
 if [ "$RELEASE_TYPE" = "CM_NIGHTLY" ]
 then
   if [ "$REPO_BRANCH" = "gingerbread" ]
@@ -235,6 +247,17 @@ then
   export CYANOGEN_RELEASE=true
   # ics needs this
   export CM_RELEASE=true
+  if [ "$SIGNED" = "true" ]
+  then
+    SIGN_BUILD=true
+  fi
+elif [ "$RELEASE_TYPE" = "CM_SNAPSHOT" ]
+then
+  export CM_SNAPSHOT=true
+  if [ "$SIGNED" = "true" ]
+  then
+    SIGN_BUILD=true
+  fi
 fi
 
 if [ ! -z "$CM_EXTRAVERSION" ]
@@ -301,10 +324,34 @@ echo "$REPO_BRANCH-$CORE_BRANCH$RELEASE_MANIFEST" > .last_branch
 time mka bacon recoveryzip recoveryimage checkapi
 check_result "Build failed."
 
-for f in $(ls $OUT/cm-*.zip*)
-do
-  ln $f $WORKSPACE/archive/$(basename $f)
-done
+if [ "$SIGN_BUILD" = "true" ]
+then
+  MODVERSION=$(cat $OUT/system/build.prop | grep ro.modversion | cut -d = -f 2)
+  if [ ! -z "$MODVERSION" -a -f $OUT/obj/PACKAGING/target_files_intermediates/$TARGET_PRODUCT-target_files-$BUILD_NUMBER.zip ]
+  then
+    if [ -s $OUT/ota_script_path ]
+    then
+        OTASCRIPT=$(cat $OUT/ota_script_path)
+    else
+        OTASCRIPT=./build/tools/releasetools/ota_from_target_files
+    fi
+    ./build/tools/releasetools/sign_target_files_apks -e Term.apk= -d vendor/cm-priv/keys $OUT/obj/PACKAGING/target_files_intermediates/$TARGET_PRODUCT-target_files-$BUILD_NUMBER.zip $OUT/$MODVERSION-signed-intermediate.zip
+    $OTASCRIPT -k vendor/cm-priv/keys/releasekey $OUT/$MODVERSION-signed-intermediate.zip $WORKSPACE/archive/cm-$MODVERSION-signed.zip
+    if [ "$FASTBOOT_IMAGES" = "true" ]
+    then
+       ./build/tools/releasetools/img_from_target_files $OUT/$MODVERSION-signed-intermediate.zip $WORKSPACE/archive/cm-$MODVERSION-fastboot.zip
+    fi
+    rm -f $OUT/ota_script_path
+  else
+    echo "Unable to find target files to sign"
+    exit 1
+  fi
+else
+  for f in $(ls $OUT/cm-*.zip*)
+  do
+    ln $f $WORKSPACE/archive/$(basename $f)
+  done
+fi
 if [ -f $OUT/utilties/update.zip ]
 then
   cp $OUT/utilties/update.zip $WORKSPACE/archive/recovery.zip
@@ -315,12 +362,24 @@ then
 fi
 
 # archive the build.prop as well
-ZIP=$(ls $WORKSPACE/archive/cm-*.zip)
+ZIP=$(ls $WORKSPACE/archive/cm-*.zip | grep -v -- -fastboot)
 unzip -p $ZIP system/build.prop > $WORKSPACE/archive/build.prop
 
+if [ "$TARGET_BUILD_VARIANT" = "user" -a "$EXTRA_DEBUGGABLE_BOOT" = "true" ]
+then
+  # Minimal rebuild to get a debuggable boot image, just in case
+  rm -f $OUT/root/default.prop
+  DEBLUNCH=$(echo $LUNCH|sed -e 's|-user$|-userdebug|g')
+  breakfast $DEBLUNCH
+  mka bootimage
+  check_result "Failed to generate a debuggable bootimage"
+  cp $OUT/boot.img $WORKSPACE/archive/boot-debuggable.img
+fi
+
+# Build is done, cleanup the environment
+cleanup
+
 # CORE: save manifest used for build (saving revisions as current HEAD)
-rm -f .repo/local_manifests/dyn-$REPO_BRANCH.xml
-rm -f .repo/local_manifests/roomservice.xml
 
 # Stash away other possible manifests
 TEMPSTASH=$(mktemp -d)
@@ -335,8 +394,11 @@ rmdir $TEMPSTASH
 chmod -R ugo+r $WORKSPACE/archive
 
 # Add build to GetCM
-# echo "Adding build to GetCM"
-# python /opt/jenkins-utils/add_build.py --file `ls $WORKSPACE/archive/*.zip` --buildprop $WORKSPACE/archive/build.prop --buildnumber $BUILD_NO --releasetype $RELEASE_TYPE
+if [ "$JOB_NAME" = "android" -a "$USER" = "jenkins" ] || [ "$PUBLISH_GETCM" = "true" ]; then
+    echo "Adding build to GetCM"
+    echo python /opt/jenkins-utils/add_build.py --file `ls $WORKSPACE/archive/*.zip` --buildprop $WORKSPACE/archive/build.prop --buildnumber $BUILD_NO --releasetype $RELEASE_TYPE
+    python /opt/jenkins-utils/add_build.py --file `ls $WORKSPACE/archive/*.zip` --buildprop $WORKSPACE/archive/build.prop --buildnumber $BUILD_NO --releasetype $RELEASE_TYPE
+fi
 
 echo "Allow Jenkins to save the builds"
 # Remove old artifacts
@@ -361,7 +423,7 @@ then
   echo Archiving release to S3.
   for f in $(ls $WORKSPACE/archive)
   do
-    cmcp $WORKSPACE/archive/$f release/$MODVERSION/$f > /dev/null 2> /dev/null
+    s3cmd --no-progress --disable-multipart -P put $WORKSPACE/archive/$f s3://cyngn-builds/release/$MODVERSION/$f > /dev/null 2> /dev/null
     check_result "Failure archiving $f"
   done
 fi
