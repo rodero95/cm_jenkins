@@ -9,7 +9,7 @@ mkdir -p ../android
 cd ../android
 export WORKSPACE=$PWD
 
-if [ ! -d hudson ]
+if [ ! -d cm_jenkins ]
 then
   git clone git://github.com/rodero95/cm_jenkins.git
 fi

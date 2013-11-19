@@ -2,4 +2,4 @@
 # <lunchcombo> <branch> [period: "D"aily, "W"eekly or "M"onthly]
 # Absence of a period indicates Daily (the default)
 
-cm_galaxysl-userdebug cm-10.2
+cm_galaxysl-userdebug cm-11.0

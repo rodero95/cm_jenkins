@@ -87,7 +87,7 @@ REPO=$(which repo)
 if [ -z "$REPO" ]
 then
   mkdir -p ~/bin
-  curl https://dl-ssl.google.com/dl/googlesource/git-repo/repo > ~/bin/repo
+  curl http://commondatastorage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
   chmod a+x ~/bin/repo
 fi
 
@@ -96,6 +96,8 @@ git config --global user.email jenkins@code.rodnet.es
 
 if [[ "$REPO_BRANCH" =~ "jellybean" || $REPO_BRANCH =~ "cm-10" ]]; then 
    JENKINS_BUILD_DIR=jellybean
+else if [[ "$REPO_BRANCH" =~ "kitkat" || $REPO_BRANCH =~ "cm-11" ]]; then 
+   JENKINS_BUILD_DIR=kitkat
 else
    JENKINS_BUILD_DIR=$REPO_BRANCH
 fi
@@ -126,7 +128,11 @@ repo init -u $SYNC_PROTO://github.com/CyanogenMod/android.git -b $CORE_BRANCH $M
 check_result "repo init failed."
 
 # make sure ccache is in PATH
-if [[ "$REPO_BRANCH" =~ "jellybean" || $REPO_BRANCH =~ "cm-10" ]]
+if [[ "$REPO_BRANCH" =~ "kitkat" || $REPO_BRANCH =~ "cm-11" ]]
+then
+export PATH="$PATH:/opt/local/bin/:$PWD/prebuilts/misc/$(uname|awk '{print tolower($0)}')-x86/ccache"
+export CCACHE_DIR=~/.kk_ccache
+else if [[ "$REPO_BRANCH" =~ "jellybean" || $REPO_BRANCH =~ "cm-10" ]]
 then
 export PATH="$PATH:/opt/local/bin/:$PWD/prebuilts/misc/$(uname|awk '{print tolower($0)}')-x86/ccache"
 export CCACHE_DIR=~/.jb_ccache
@@ -286,7 +292,7 @@ fi
 
 if [ ! "$(ccache -s|grep -E 'max cache size'|awk '{print $4}')" = "100.0" ]
 then
-  ccache -M 100G
+  ccache -M 50G
 fi
 
 rm -f $WORKSPACE/changecount
