@@ -11,28 +11,10 @@ then
 	export WORKSPACE=$CWORKSPACE
 fi
 
-if [$UBUNTU]; then
-	cd $WORKSPACE
-	mkdir -p ../ubuntu
-	cd ../ubuntu
-	export WORKSPACE=$PWD
-
-	if [ ! -d phablet_tools ]
-	then
-		git clone git://github.com/rodero95/phablet_tools.git
-	fi
-	
-	cd phablet_tools
-	## Get rid of possible local changes
-	git reset --hard
-	git pull -s resolve
-	cd ..
-else
-	cd $WORKSPACE
-	mkdir -p ../android
-	cd ../android
-	export WORKSPACE=$PWD
-fi
+cd $WORKSPACE
+mkdir -p ../android
+cd ../android
+export WORKSPACE=$PWD
 	
 if [ ! -d cm_jenkins ]
 then
@@ -44,8 +26,4 @@ cd cm_jenkins
 git reset --hard
 git pull -s resolve
 
-if [$UBUNTU]; then
-	exec ./ubuntu.sh
-else
-	exec ./build.sh
-fi
+exec ./build.sh
