@@ -109,9 +109,13 @@ cd $JENKINS_BUILD_DIR
 
 # always force a fresh repo init since we can build off different branches
 # and the "default" upstream branch can get stuck on whatever was init first.
-if [ -z "$CORE_BRANCH" ]
+if [ "$STABILIZATION_BRANCH" = "true" ]
 then
-  CORE_BRANCH=$REPO_BRANCH
+  SYNC_BRANCH="stable/$REPO_BRANCH"
+  # Temporary: Let the stab builds fallback to the mainline dependency 
+  export ROOMSERVICE_BRANCHES="$REPO_BRANCH"
+else
+  SYNC_BRANCH=$REPO_BRANCH
 fi
 
 if [ ! -z "$RELEASE_MANIFEST" ]
@@ -124,22 +128,12 @@ fi
 
 rm -rf .repo/manifests*
 rm -f .repo/local_manifests/dyn-*.xml
-repo init -u $SYNC_PROTO://github.com/CyanogenMod/android.git -b $CORE_BRANCH $MANIFEST
+repo init -u $SYNC_PROTO://github.com/CyanogenMod/android.git -b $SYNC_BRANCH $MANIFEST
 check_result "repo init failed."
 
 # make sure ccache is in PATH
-if [[ "$REPO_BRANCH" =~ "kitkat" || $REPO_BRANCH =~ "cm-11" ]]
-then
 export PATH="$PATH:/opt/local/bin/:$PWD/prebuilts/misc/$(uname|awk '{print tolower($0)}')-x86/ccache"
-export CCACHE_DIR=~/.kk_ccache
-else if [[ "$REPO_BRANCH" =~ "jellybean" || $REPO_BRANCH =~ "cm-10" ]]
-then
-export PATH="$PATH:/opt/local/bin/:$PWD/prebuilts/misc/$(uname|awk '{print tolower($0)}')-x86/ccache"
-export CCACHE_DIR=~/.jb_ccache
-else
-export PATH="$PATH:/opt/local/bin/:$PWD/prebuilt/$(uname|awk '{print tolower($0)}')-x86/ccache"
-export CCACHE_DIR=~/.ics_ccache
-fi
+export CCACHE_DIR=~/.ccache
 
 if [ -f ~/.jenkins_profile ]
 then
@@ -167,7 +161,7 @@ cat .repo/manifest.xml
 ## up posterior syncs due to changes
 rm -rf kernel/*
 
-if [ "$RELEASE_TYPE" = "CM_RELEASE" ]
+if [[ "$RELEASE_TYPE" = "CM_RELEASE" || "$STABILIZATION_BRANCH" = "true" ]]
 then
   if [ -f  $WORKSPACE/build_env/$REPO_BRANCH-release.xml ]
   then
@@ -192,10 +186,10 @@ then
   LAST_BRANCH=$(cat .last_branch)
 else
   echo "Last build branch is unknown, assume clean build"
-  LAST_BRANCH=$REPO_BRANCH-$CORE_BRANCH$RELEASE_MANIFEST
+  LAST_BRANCH=$REPO_BRANCH-$RELEASE_MANIFEST
 fi
 
-if [ "$LAST_BRANCH" != "$REPO_BRANCH-$CORE_BRANCH$RELEASE_MANIFEST" ]
+if [ "$LAST_BRANCH" != "$REPO_BRANCH-$RELEASE_MANIFEST" ]
 then
   echo "Branch has changed since the last build happened here. Forcing cleanup."
   CLEAN="true"
@@ -238,20 +232,12 @@ export SIGN_BUILD=false
 
 if [ "$RELEASE_TYPE" = "CM_NIGHTLY" ]
 then
-  if [ "$REPO_BRANCH" = "gingerbread" ]
-  then
-    export CYANOGEN_NIGHTLY=true
-  else
-    export CM_NIGHTLY=true
-  fi
+  export CM_NIGHTLY=true
 elif [ "$RELEASE_TYPE" = "CM_EXPERIMENTAL" ]
 then
   export CM_EXPERIMENTAL=true
 elif [ "$RELEASE_TYPE" = "CM_RELEASE" ]
 then
-  # gingerbread needs this
-  export CYANOGEN_RELEASE=true
-  # ics needs this
   export CM_RELEASE=true
   if [ "$SIGNED" = "true" ]
   then
@@ -325,14 +311,14 @@ else
   echo "Skipping clean: $TIME_SINCE_LAST_CLEAN hours since last clean."
 fi
 
-echo "$REPO_BRANCH-$CORE_BRANCH$RELEASE_MANIFEST" > .last_branch
+echo "$REPO_BRANCH-$RELEASE_MANIFEST" > .last_branch
 
 time mka bacon recoveryzip recoveryimage checkapi
 check_result "Build failed."
 
 if [ "$SIGN_BUILD" = "true" ]
 then
-  MODVERSION=$(cat $OUT/system/build.prop | grep ro.modversion | cut -d = -f 2)
+  MODVERSION=$(cat $OUT/system/build.prop | grep ro.cm.version | cut -d = -f 2)
   if [ ! -z "$MODVERSION" -a -f $OUT/obj/PACKAGING/target_files_intermediates/$TARGET_PRODUCT-target_files-$BUILD_NUMBER.zip ]
   then
     if [ -s $OUT/ota_script_path ]
@@ -416,14 +402,10 @@ cp $WORKSPACE/archive/* $WORKSPACE/../workspace/out/
 CMCP=$(which cmcp)
 if [ ! -z "$CMCP" -a ! -z "$CM_RELEASE" ]
 then
-  MODVERSION=$(cat $WORKSPACE/archive/build.prop | grep ro.modversion | cut -d = -f 2)
+  MODVERSION=$(cat $WORKSPACE/archive/build.prop | grep ro.cm.version | cut -d = -f 2)
   if [ -z "$MODVERSION" ]
   then
-    MODVERSION=$(cat $WORKSPACE/archive/build.prop | grep ro.cm.version | cut -d = -f 2)
-  fi
-  if [ -z "$MODVERSION" ]
-  then
-    echo "Unable to detect ro.modversion or ro.cm.version."
+    echo "Unable to detect ro.cm.version."
     exit 1
   fi
   echo Archiving release to S3.
