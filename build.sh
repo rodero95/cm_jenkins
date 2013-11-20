@@ -133,7 +133,7 @@ check_result "repo init failed."
 
 # make sure ccache is in PATH
 export PATH="$PATH:/opt/local/bin/:$PWD/prebuilts/misc/$(uname|awk '{print tolower($0)}')-x86/ccache"
-export CCACHE_DIR=~/.ccache
+export CCACHE_DIR=$WORKSPACE/.ccache
 
 if [ -f ~/.jenkins_profile ]
 then
@@ -394,10 +394,10 @@ fi
 
 echo "Allow Jenkins to save the builds"
 # Remove old artifacts
-rm -rf $WORKSPACE/../workspace/out
+rm -rf $JENKINS_WORKSPACE/../workspace/out
 # Then, save the builds
-mkdir -p $WORKSPACE/../workspace/out
-cp $WORKSPACE/archive/* $WORKSPACE/../workspace/out/
+mkdir -p $JENKINS_WORKSPACE/../workspace/out
+cp $WORKSPACE/archive/* $JENKINS_WORKSPACE/../workspace/out/
 
 CMCP=$(which cmcp)
 if [ ! -z "$CMCP" -a ! -z "$CM_RELEASE" ]

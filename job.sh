@@ -4,6 +4,13 @@ then
   export HOME=$(awk -F: -v v="$USER" '{if ($1==v) print $6}' /etc/passwd)
 fi
 
+export JENKINS_WORKSPACE=$WORKSPACE
+
+if [ ! -z "$CWORKSPACE" ]
+then
+	export WORKSPACE=$CWORKSPACE
+fi
+
 if [$UBUNTU]; then
 	cd $WORKSPACE
 	mkdir -p ../ubuntu
